@@ -283,7 +283,7 @@ module byteprocessor
 (
     input logic clock,           // Global clock
     input logic reset,           // Global reset
-    input logic update_enable,   // Indicates if this is a cycle to move on to new bit (sub-samples global clock)
+    input logic update_enable,   // Indicates if this is a cycle to move on to new bit (sub-samples global1 clock)
 
     input logic [7:0] data_in,   // Data to send
     input logic start,           // Trigger to start sending

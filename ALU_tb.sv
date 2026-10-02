@@ -1,3 +1,4 @@
+/*
 module ALU_tb ();
     logic [1:0]ALUSrc;
     logic zero;
@@ -267,4 +268,227 @@ initial begin
 
 end
 
+endmodule */
+
+module ALU_tb;
+    timeunit 1ns;
+    timeprecision 1ps;
+
+    logic [1:0] ALUSrc;
+    logic [3:0] user;
+
+    logic [5:0] seconds, minutes;
+    logic [4:0] hours;
+
+    logic [5:0] alarmseconds, alarmminutes;
+    logic [4:0] alarmhours;
+
+    logic [5:0] newseconds, newminutes;
+    logic [4:0] newhours;
+    logic zero, zero2;
+
+    int tests = 0;
+    int errors = 0;
+
+    localparam int SECONDS_PER_DAY = 24 * 60 * 60;
+
+    ALU dut (
+        .ALUSrc(ALUSrc),
+        .user(user),
+        .seconds(seconds),
+        .minutes(minutes),
+        .hours(hours),
+        .alarmseconds(alarmseconds),
+        .alarmminutes(alarmminutes),
+        .alarmhours(alarmhours),
+        .newseconds(newseconds),
+        .newminutes(newminutes),
+        .newhours(newhours),
+        .zero(zero),
+        .zero2(zero2)
+    );
+
+    // 独立参考模型：输入总秒数，输出预期时间和状态。
+    task automatic reference_model(
+        input int mode,
+        input int command,
+        input int t,
+        input int alarm_t,
+        output int expected_t,
+        output bit expected_zero,
+        output bit expected_zero2
+    );
+        int h, m, s;
+        int direction;
+
+        h = t / 3600;
+        m = (t / 60) % 60;
+        s = t % 60;
+
+        expected_t = t;
+        expected_zero = 0;
+        expected_zero2 = 0;
+
+        case (mode)
+            0: begin
+                expected_t = (t + 1) % SECONDS_PER_DAY;
+            end
+
+            1: begin
+                // 倒计时在零处停止，不回绕到 23:59:59。
+                expected_t = (t == 0) ? 0 : t - 1;
+                expected_zero = (t == 0);
+            end
+
+            2: begin
+                direction = (command & 1) ? -1 : 1;
+
+                // command[3:1] 为 one-hot 字段选择。
+                case (command >> 1)
+                    1: s = (s + direction + 60) % 60;
+                    2: m = (m + direction + 60) % 60;
+                    4: h = (h + direction + 24) % 24;
+                    default: ; // 无效选择保持原值。
+                endcase
+
+                expected_t = h * 3600 + m * 60 + s;
+            end
+
+            3: begin
+                expected_zero2 = (t == alarm_t);
+            end
+        endcase
+    endtask
+
+    task automatic check_case(
+        input int mode,
+        input int command,
+        input int t,
+        input int alarm_t
+    );
+        int expected_t;
+        bit expected_zero, expected_zero2;
+
+        logic [5:0] expected_s, expected_m;
+        logic [4:0] expected_h;
+
+        ALUSrc = mode;
+        user = command;
+
+        hours   = t / 3600;
+        minutes = (t / 60) % 60;
+        seconds = t % 60;
+
+        alarmhours   = alarm_t / 3600;
+        alarmminutes = (alarm_t / 60) % 60;
+        alarmseconds = alarm_t % 60;
+
+        reference_model(
+            mode, command, t, alarm_t,
+            expected_t, expected_zero, expected_zero2
+        );
+
+        expected_h = expected_t / 3600;
+        expected_m = (expected_t / 60) % 60;
+        expected_s = expected_t % 60;
+
+        #1;
+        tests++;
+
+        // 比较模式不检查时间输出，它们在该模式下不被使用。
+        // !== 可以抓到 X/Z，不会让未知值悄悄通过。
+        if (((mode != 3) &&
+             ({newhours, newminutes, newseconds} !==
+              {expected_h, expected_m, expected_s})) ||
+            (zero  !== expected_zero) ||
+            (zero2 !== expected_zero2)) begin
+
+            errors++;
+
+            // 防止错误太多导致输出刷屏。
+            if (errors <= 20) begin
+                $display(
+                    "FAIL #%0d mode=%02b user=%04b input=%02d:%02d:%02d alarm=%02d:%02d:%02d",
+                    tests, ALUSrc, user,
+                    hours, minutes, seconds,
+                    alarmhours, alarmminutes, alarmseconds
+                );
+
+                $display(
+                    "  got      %02d:%02d:%02d zero=%b zero2=%b",
+                    newhours, newminutes, newseconds, zero, zero2
+                );
+
+                $display(
+                    "  expected %02d:%02d:%02d zero=%b zero2=%b",
+                    expected_h, expected_m, expected_s,
+                    expected_zero, expected_zero2
+                );
+            end
+        end
+    endtask
+
+    initial begin
+        // 1. 穷举一天中的所有时间：递增、递减。
+        for (int t = 0; t < SECONDS_PER_DAY; t++) begin
+            check_case(0, 0, t, 0);
+            check_case(1, 0, t, 0);
+        end
+
+        // 2. 穷举所有时间和全部 16 种手动控制编码。
+        // 包括加减、回绕、未选字段保持以及无效选择。
+        for (int t = 0; t < SECONDS_PER_DAY; t++) begin
+            for (int command = 0; command < 16; command++) begin
+                check_case(2, command, t, 0);
+            end
+        end
+
+        // 3. 每个时间点分别测试：
+        // 全部相等、仅秒不同、仅分钟不同、仅小时不同。
+        for (int t = 0; t < SECONDS_PER_DAY; t++) begin
+            check_case(3, 0, t, t);
+
+            check_case(
+                3, 0, t,
+                (t / 60) * 60 + ((t % 60 + 1) % 60)
+            );
+
+            check_case(
+                3, 0, t,
+                (t / 3600) * 3600
+                + (((t / 60) % 60 + 1) % 60) * 60
+                + t % 60
+            );
+
+            check_case(
+                3, 0, t,
+                ((t / 3600 + 1) % 24) * 3600 + t % 3600
+            );
+        end
+
+        // 4. 专门检查状态是否残留：
+        // zero 从 1 回到 0，zero2 从 1 回到 0。
+        check_case(1, 0, 0, 0);
+        check_case(0, 0, 100, 0);
+
+        check_case(3, 0, 100, 100);
+        check_case(0, 0, 100, 0);
+
+        // 5. 随机切换模式，补充不同操作顺序。
+        repeat (10000) begin
+            check_case(
+                $urandom_range(0, 3),
+                $urandom_range(0, 15),
+                $urandom_range(0, SECONDS_PER_DAY - 1),
+                $urandom_range(0, SECONDS_PER_DAY - 1)
+            );
+        end
+
+        if (errors == 0) begin
+            $display("PASS: %0d cases", tests);
+            $finish;
+        end else begin
+            $fatal(1, "FAIL: %0d / %0d cases failed", errors, tests);
+        end
+    end
 endmodule

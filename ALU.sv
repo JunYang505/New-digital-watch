@@ -19,9 +19,12 @@ module ALU (
 );
 
     always @(*) begin 
-        newseconds = 0;
-        newminutes = 0;
-        newhours = 0;
+        newseconds = seconds;
+        newminutes = minutes;
+        newhours = hours;
+
+        zero = 0;
+        zero2 = 0;
 
         if (ALUSrc == 2'b00) begin//+ 
             
@@ -95,7 +98,9 @@ module ALU (
                 end     
 
         end else if (ALUSrc == 2'b11 )begin
-            zero2 = ~(|(seconds - alarmseconds)) | (|(minutes - alarmminutes)) | (|(hours - alarmhours));
+            zero2 = (seconds == alarmseconds) &&
+                    (minutes == alarmminutes) &&
+                    (hours   == alarmhours);
         
         
         

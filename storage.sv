@@ -12,7 +12,7 @@ module storage(
     output logic [4:0]hours
 );
 
-always_ff @( posedge clk ) begin : 
+always_ff @( posedge clk ) begin  
     if (reset) begin
         seconds <= 0;
         minutes <= 0;
