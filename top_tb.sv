@@ -179,7 +179,6 @@ module top_tb;
         wait_cycles(100);
         check_time(0, 0, 0, 0, "idle does not advance time");
 
-。
         repeat (3)
             tick_once();
 
