@@ -122,7 +122,7 @@ module ControlUnit (
 
     logic [1:0] mode;
 
-    // 00：正常运行；01：编辑秒；10：编辑分；11：编辑小时
+
     logic [1:0] edit_field;
     logic paused;
 
@@ -163,7 +163,7 @@ module ControlUnit (
 
     assign displaymode = mode;
 
-    // 保存模式、时区、编辑字段和暂停状态
+    
     always_ff @(posedge clock or posedge reset) begin
         if (reset) begin
             mode       <= 2'b00;
@@ -175,7 +175,7 @@ module ControlUnit (
                 mode       <= mode + 2'd1;
                 edit_field <= 2'b00;
             end else if (timezone_detected) begin
-                // 偏移 0..23；24 与 0 重复
+              
                 global1 <= (global1 == 5'd23)
                           ? 5'd0 : global1 + 5'd1;
             end else if (settime_detected) begin
@@ -188,15 +188,15 @@ module ControlUnit (
         end
     end
 
-    // 根据当前状态和按键事件生成控制信号
+ 
     always_comb begin
         user       = 4'b0000;
         timereset2 = 1'b0;
 
-        // 暂按 10 为倒计时，其余模式为递增。
+  
         ALUSrc = (mode == 2'b10) ? 2'b01 : 2'b00;
 
-        // 编辑期间暂停正常更新。
+  
         write = !reset && !paused && (edit_field == 2'b00);
 
         if (!reset) begin
@@ -211,16 +211,15 @@ module ControlUnit (
                 ALUSrc = 2'b10;
 
                 case (edit_field)
-                    2'b01: user[3:1] = 3'b001; // 秒
-                    2'b10: user[3:1] = 3'b010; // 分
-                    2'b11: user[3:1] = 3'b100; // 小时
+                    2'b01: user[3:1] = 3'b001; 
+                    2'b10: user[3:1] = 3'b010; 
+                    2'b11: user[3:1] = 3'b100; 
                     default: user[3:1] = 3'b000;
                 endcase
 
-                // ALU：0 加一，1 减一。
                 user[0] = down_detected;
 
-                // 只有单独按 up 或 down，才执行一次编辑。
+             
                 write = up_detected ^ down_detected;
             end
         end
