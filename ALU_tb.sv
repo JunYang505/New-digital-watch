@@ -308,7 +308,7 @@ module ALU_tb;
         .zero2(zero2)
     );
 
-    // 独立参考模型：输入总秒数，输出预期时间和状态。
+    
     task automatic reference_model(
         input int mode,
         input int command,
@@ -335,7 +335,7 @@ module ALU_tb;
             end
 
             1: begin
-                // 倒计时在零处停止，不回绕到 23:59:59。
+             
                 expected_t = (t == 0) ? 0 : t - 1;
                 expected_zero = (t == 0);
             end
@@ -343,12 +343,12 @@ module ALU_tb;
             2: begin
                 direction = (command & 1) ? -1 : 1;
 
-                // command[3:1] 为 one-hot 字段选择。
+
                 case (command >> 1)
                     1: s = (s + direction + 60) % 60;
                     2: m = (m + direction + 60) % 60;
                     4: h = (h + direction + 24) % 24;
-                    default: ; // 无效选择保持原值。
+                    default: ; 
                 endcase
 
                 expected_t = h * 3600 + m * 60 + s;
@@ -395,8 +395,8 @@ module ALU_tb;
         #1;
         tests++;
 
-        // 比较模式不检查时间输出，它们在该模式下不被使用。
-        // !== 可以抓到 X/Z，不会让未知值悄悄通过。
+
+
         if (((mode != 3) &&
              ({newhours, newminutes, newseconds} !==
               {expected_h, expected_m, expected_s})) ||
@@ -405,7 +405,7 @@ module ALU_tb;
 
             errors++;
 
-            // 防止错误太多导致输出刷屏。
+
             if (errors <= 20) begin
                 $display(
                     "FAIL #%0d mode=%02b user=%04b input=%02d:%02d:%02d alarm=%02d:%02d:%02d",
@@ -429,22 +429,18 @@ module ALU_tb;
     endtask
 
     initial begin
-        // 1. 穷举一天中的所有时间：递增、递减。
+     
         for (int t = 0; t < SECONDS_PER_DAY; t++) begin
             check_case(0, 0, t, 0);
             check_case(1, 0, t, 0);
         end
 
-        // 2. 穷举所有时间和全部 16 种手动控制编码。
-        // 包括加减、回绕、未选字段保持以及无效选择。
         for (int t = 0; t < SECONDS_PER_DAY; t++) begin
             for (int command = 0; command < 16; command++) begin
                 check_case(2, command, t, 0);
             end
         end
 
-        // 3. 每个时间点分别测试：
-        // 全部相等、仅秒不同、仅分钟不同、仅小时不同。
         for (int t = 0; t < SECONDS_PER_DAY; t++) begin
             check_case(3, 0, t, t);
 
@@ -466,15 +462,14 @@ module ALU_tb;
             );
         end
 
-        // 4. 专门检查状态是否残留：
-        // zero 从 1 回到 0，zero2 从 1 回到 0。
+
         check_case(1, 0, 0, 0);
         check_case(0, 0, 100, 0);
 
         check_case(3, 0, 100, 100);
         check_case(0, 0, 100, 0);
 
-        // 5. 随机切换模式，补充不同操作顺序。
+ 
         repeat (10000) begin
             check_case(
                 $urandom_range(0, 3),
