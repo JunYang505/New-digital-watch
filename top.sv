@@ -65,10 +65,7 @@ module top(
     assign timereset  = keys[1];
     assign stop       = keys[0];
 
-    // ========================================
-    // Control
-    // 00时钟 / 01秒表 / 10倒计时 / 11闹钟
-    // ========================================
+  
     logic control_write;
     logic [3:0] user;
     logic [1:0] ALUSrc, displaymode;
@@ -93,9 +90,7 @@ module top(
         .timereset2(timereset2)
     );
 
-    // ========================================
-    // 一秒脉冲
-    // ========================================
+
     logic one_hz;
 
     timed_enable #(
@@ -106,9 +101,7 @@ module top(
         .enable(one_hz)
     );
 
-    // ========================================
-    // 四组时间与共享结果
-    // ========================================
+
     logic [5:0] clock_seconds, clock_minutes;
     logic [4:0] clock_hours;
 
@@ -175,9 +168,7 @@ module top(
         .hours(alarm_hours)
     );
 
-    // ========================================
-    // 独立启停
-    // ========================================
+
     logic stop_last, stop_event;
     logic sw_running, count_running;
     logic count_finished;
@@ -214,10 +205,6 @@ module top(
         end
     end
 
-    // ========================================
-    // 调度：IDLE -> 四槽位 -> IDLE
-    // 编辑单独占用一个周期
-    // ========================================
     typedef enum logic [2:0] {
         IDLE,
         UPDATE_CLOCK,
@@ -254,7 +241,7 @@ module top(
             edit_target    <= 2'b00;
             edit_user      <= 4'b0000;
         end else begin
-            // 保存一条编辑请求。
+       
             if (edit_request && !edit_pending && state != EDIT) begin
                 edit_pending <= 1'b1;
                 edit_target  <= displaymode;
@@ -284,7 +271,7 @@ module top(
                 default: state <= IDLE;
             endcase
 
-            // 忙碌期间到来的秒脉冲不丢失。
+            
             if (one_hz && state != IDLE)
                 second_pending <= 1'b1;
 
@@ -293,9 +280,7 @@ module top(
         end
     end
 
-    // ========================================
-    // ALU 输入 MUX、操作码、写使能
-    // ========================================
+
     logic [5:0] alu_seconds, alu_minutes;
     logic [4:0] alu_hours;
     logic [1:0] alu_ALUSrc;
@@ -316,7 +301,7 @@ module top(
 
         case (state)
             UPDATE_CLOCK: begin
-                // 进入时钟编辑时暂停该时钟的自动更新。
+           
                 clock_write =
                     !(displaymode == 2'b00 && ALUSrc == 2'b10);
             end
@@ -347,7 +332,7 @@ module top(
             end
 
             CHECK_ALARM: begin
-                // 时钟作为主输入，闹钟作为比较参考。
+          
                 alu_ALUSrc = 2'b11;
             end
 
@@ -383,7 +368,7 @@ module top(
                 endcase
             end
 
-            default: ; // IDLE 不写入
+            default: ; 
         endcase
 
         if (reset) begin
@@ -417,9 +402,7 @@ module top(
         (newminutes == 0) &&
         (newseconds == 0);
 
-    // ========================================
-    // 报警与倒计时完成提示
-    // ========================================
+
     logic alarm_active, count_done;
 
     always_ff @(posedge clock) begin
@@ -451,9 +434,7 @@ module top(
         sw_running
     };
 
-    // ========================================
-    // 时区换算
-    // ========================================
+  
     logic [5:0] globaltime_raw, globaltime;
 
     extend timezone_extend (
@@ -467,9 +448,7 @@ module top(
         ? globaltime_raw - 6'd24
         : globaltime_raw;
 
-    // ========================================
-    // 显示 MUX：与后台调度独立
-    // ========================================
+
     logic [6:0] display_seconds, display_minutes;
     logic [5:0] display_hours;
 
